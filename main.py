@@ -15,7 +15,7 @@ class Line:
         self.dim = dim
         self.tf = self.calculate_tf()
         self.idf = idf
-        self.tf_idf = self.calculate_tf_idf()
+        self.vector = self.calculate_vector()
         
 
     def calculate_tf(self):
@@ -29,7 +29,7 @@ class Line:
         return tf
 
 
-    def calculate_tf_idf(self):
+    def calculate_vector(self):
         tf_idf = dict()
         for term in self.dim:
             tf_idf[term] = self.tf[term] * self.idf[term]
@@ -45,18 +45,17 @@ class Line:
         return tokens
 
 
-
 class Document:
     def __init__(self, doc, dim=None):
         self.line_vector_list = list()
-        if dim == None:
-            self.dim = set(self.tokenized_line)
+        if dim is None:
+            self.dim = set(Line.tokenize_line(doc.text)) #this should be repaired
         else:
             self.dim = dim
         self.idf = self.line_idf_calculator(doc)
         for line in doc.split("\n"):
             self.line_vector_list.append(Line(line, self.idf, self.dim))
-        self.doc_vector = self.sum(self.line_vector_list)
+        self.doc_vector = self.sum(self.line_vector_list) #we should add a sum function
 
 
     def line_idf_calculator(self, doc):
@@ -72,6 +71,14 @@ class Document:
         return idf
 
 
+    def sum(self, line_vector_list):
+        vector_sum = dict()
+        for line_vector in line_vector_list:
+            for term in self.dim:
+                vector_sum[term] += line_vector[term]
+        return vector_sum
+
+
 class Program:
     def __init__(self, query, doc_list):
         self.query = Document(query)
@@ -82,6 +89,6 @@ class Program:
 
 
 if __name__ == "__main__" :
-    query = str(input("Enter the query"))
-    doc_list = input("Enter the document numbers").split(" ")
+    query = str(input("Enter the query : "))
+    doc_list = input("Enter the document numbers : ").split(" ")
     system = Program(query, doc_list)
