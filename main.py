@@ -3,15 +3,15 @@
 # Search Engine(Phase 1)
 # Collabrators: Seyyed Amirmohammad Mirshamsi, Mohammadhossein Damad
 
-import numpy 
+import os
 from math import log
 from collections import Counter
 from whoosh.analysis import SimpleAnalyzer, StopFilter
 
 
 class Line:
-    def __init__(self, line, idf, dim):
-        self.tokenized_line = self.tokenize_line(line)
+    def __init__(self, doc, idf, dim):
+        self.tokenized_doc = self.tokenize_line(doc)
         self.dim = dim
         self.tf = self.calculate_tf()
         self.idf = idf
@@ -20,12 +20,12 @@ class Line:
 
     def calculate_tf(self):
         term_counter = Counter()
-        for term in self.tokenized_line:
+        for term in self.tokenized_doc:
             if term in self.dim:
                 term_counter[term] += 1
         tf = dict()
         for term in term_counter:
-            tf[term] = term_counter[term] / len(self.tokenized_line)
+            tf[term] = term_counter[term]
         return tf
 
 
@@ -49,13 +49,13 @@ class Document:
     def __init__(self, doc, dim=None):
         self.line_vector_list = list()
         if dim is None:
-            self.dim = set(Line.tokenize_line(doc.text)) #this should be repaired
+            self.dim = set(Line.tokenize_line(doc))
         else:
             self.dim = dim
         self.idf = self.line_idf_calculator(doc)
         for line in doc.split("\n"):
-            self.line_vector_list.append(Line(line, self.idf, self.dim))
-        self.doc_vector = self.sum(self.line_vector_list) #we should add a sum function
+            self.line_vector_list.append(Line(doc, self.idf, self.dim))
+        self.doc_vector = self.sum(self.line_vector_list)
 
 
     def line_idf_calculator(self, doc):
@@ -73,9 +73,9 @@ class Document:
     
     def sum(self, line_vector_list):
         vector_sum = dict()
-        for line_vector in line_vector_list:
+        for line in line_vector_list:
             for term in self.dim:
-                vector_sum[term] += line_vector[term]
+                vector_sum[term] += line.vector[term]
         return vector_sum
 
 
@@ -84,10 +84,11 @@ class Program:
         self.query = Document(query)
         self.doc_dict = dict()
         for doc in doc_list:
-            self.doc_dict[doc] = Document(doc, query.dim)
+            doc_text = open(os.getcwd() + "\\data\\document_" + doc + ".txt").read()
+            self.doc_dict[doc] = Document(doc_text, query.dim)
 
 
 if __name__ == "__main__" :
     query = str(input("Enter the query : "))
-    doc_list = input("Enter the document numbers : ").split(" ")
+    doc_list = input("Enter the document numbers : ").split()
     system = Program(query, doc_list)
