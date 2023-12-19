@@ -70,7 +70,7 @@ class Document:
             idf[term] = log(num_par/ (term_counter[term] + 1))
         return idf
 
-
+    
     def sum(self, line_vector_list):
         vector_sum = dict()
         for line_vector in line_vector_list:
@@ -85,7 +85,6 @@ class Program:
         self.doc_dict = dict()
         for doc in doc_list:
             self.doc_dict[doc] = Document(doc, query.dim)
-
 
 
 if __name__ == "__main__" :
