@@ -70,6 +70,14 @@ class Document:
             idf[term] = log(num_par/ (term_counter[term] + 1))
         return idf
 
+    
+    def sum(self, line_vector_list):
+        vector_sum = dict()
+        for line_vector in line_vector_list:
+            for term in self.dim:
+                vector_sum[term] += line_vector[term]
+        return vector_sum
+
 
     def sum(self, line_vector_list):
         vector_sum = dict()
