@@ -4,7 +4,7 @@
 # Collabrators: Seyyed Amirmohammad Mirshamsi, Mohammadhossein Damad
 
 import os
-from math import log
+from math import log, sqrt
 from collections import Counter
 from whoosh.analysis import SimpleAnalyzer, StopFilter
 
@@ -20,6 +20,8 @@ class Line:
 
     def calculate_tf(self):
         term_counter = Counter()
+        for term in self.dim:
+            term_counter[term] = 0
         for term in self.tokenized_doc:
             if term in self.dim:
                 term_counter[term] += 1
@@ -46,7 +48,7 @@ class Line:
 
 
 class Document:
-    def __init__(self, doc, dim=None):
+    def __init__(self, doc, dim):
         self.line_vector_list = list()
         self.dim = dim
         self.idf = self.line_idf_calculator(doc)
@@ -64,16 +66,21 @@ class Document:
                     term_counter[term] += 1
         idf = dict()
         for term in self.dim:
+            if term_counter[term] == 0:
+                term_counter[term] = 1
             idf[term] = log(num_par / term_counter[term])
         return idf
 
     
     def sum(self, line_vector_list):
-        vector_sum = dict()
+        vector_sum = Counter()
         for line in line_vector_list:
             for term in self.dim:
                 vector_sum[term] += line.vector[term]
-        return vector_sum
+        vector_sum_dict = dict()
+        for term in vector_sum:
+            vector_sum_dict[term] = vector_sum[term]
+        return vector_sum_dict
 
 
 class Query:
@@ -98,6 +105,8 @@ class Query:
 
     def query_tf_calculator(self, query, dim, doc_list):
         term_counter = Counter()
+        for term in self.dim:
+            term_counter[term] = 0
         for doc_num in doc_list:
             doc_words = Line.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read())
             for term in doc_words:
@@ -126,7 +135,34 @@ class Program:
         self.doc_dict = dict()
         for doc in doc_list:
             doc_text = open(os.getcwd() + "\\data\\document_" + doc + ".txt").read()
-            self.doc_dict[doc] = Document(doc_text, query.dim)
+            self.doc_dict[doc] = Document(doc_text, self.query.dim)
+        self.docs_cosine = self.calculate_cosine()
+        print(max(self.docs_cosine, key = lambda x: self.docs_cosine[x]))
+
+
+    def calculate_cosine(self):
+        docs_and_query_zarb_dakhly = Counter()
+        for doc in self.doc_dict:
+            for term in self.query.dim:
+                docs_and_query_zarb_dakhly[doc] += self.doc_dict[doc].doc_vector[term] * self.query.vector[term]
+        query_square_sum = 0
+        for term in self.query.dim:
+            query_square_sum += self.query.vector[term] ** 2
+        docs_square_sum = Counter()
+        for doc in self.doc_dict:
+            for term in self.query.dim:
+                docs_square_sum[doc] += self.doc_dict[doc].doc_vector[term] ** 2
+        docs_cosine = Counter()
+        for doc in self.doc_dict:
+            temp = sqrt(docs_square_sum[doc]) * sqrt(query_square_sum)
+            if temp == 0:
+                docs_cosine[doc] = -1
+            else:
+                docs_cosine[doc] = docs_and_query_zarb_dakhly[doc] / temp
+        docs_cosine_dict = dict()
+        for doc_num in docs_cosine:
+            docs_cosine_dict[doc_num] = docs_cosine[doc_num]
+        return docs_cosine_dict
 
 
 if __name__ == "__main__" :
