@@ -8,16 +8,16 @@ from math import log, sqrt
 from collections import Counter
 from whoosh.analysis import SimpleAnalyzer, StopFilter
 
-
+#class for each paragraph
 class Line:
     def __init__(self, doc, idf, dim):
-        self.tokenized_doc = self.tokenize_line(doc)
+        self.tokenized_doc = Program.tokenize_line(doc)
         self.dim = dim
         self.tf = self.calculate_tf()
         self.idf = idf
         self.vector = self.calculate_vector()
         
-
+    #calculating each paragraph tf
     def calculate_tf(self):
         term_counter = Counter()
         for term in self.dim:
@@ -30,7 +30,7 @@ class Line:
             tf[term] = term_counter[term]
         return tf
 
-
+    #build the vector of each paragraph
     def calculate_vector(self):
         tf_idf = dict()
         for term in self.dim:
@@ -38,15 +38,7 @@ class Line:
         return tf_idf
 
 
-    @staticmethod
-    def tokenize_line(line):
-        '''Create a SimpleAnalyzer with default stop words
-           Tokenize the query using the analyzer'''
-        analyzer = SimpleAnalyzer() | StopFilter()
-        tokens = [token.text for token in analyzer(line)]
-        return tokens
-
-
+#class for each document
 class Document:
     def __init__(self, doc, dim):
         self.line_vector_list = list()
@@ -56,7 +48,7 @@ class Document:
             self.line_vector_list.append(Line(doc, self.idf, self.dim))
         self.doc_vector = self.sum(self.line_vector_list)
 
-
+    #calculating each paragraph idf
     def line_idf_calculator(self, doc):
         term_counter = Counter()
         num_par = len(doc.split("\n"))
@@ -71,7 +63,7 @@ class Document:
             idf[term] = log(num_par / term_counter[term])
         return idf
 
-    
+    #calculates the sum of paragraphs vectors and gives the doc vector
     def sum(self, line_vector_list):
         vector_sum = Counter()
         for line in line_vector_list:
@@ -82,37 +74,37 @@ class Document:
             vector_sum_dict[term] = vector_sum[term]
         return vector_sum_dict
 
-
+#class for query
 class Query:
     def __init__(self, query, doc_list):
-        self.dim = set(Line.tokenize_line(query))
+        self.dim = set(Program.tokenize_line(query))
         self.idf = self.query_idf_calculator(self.dim, doc_list)
         self.tf = self.query_tf_calculator(query, self.dim, doc_list)
         self.vector = self.calculate_vector()
     
-
+    #calculating query idf
     def query_idf_calculator(self, dim, doc_list):
         doc_counter = Counter()
         for term in self.dim:
             for doc_num in doc_list:
-                if term in Line.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read()):
+                if term in Program.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read()):
                     doc_counter[term] += 1
         idf = dict()
         for term in self.dim:
             idf[term] = log(len(doc_list) / (doc_counter[term] + 1))
         return idf
 
-
+    #calculating query tf
     def query_tf_calculator(self, query, dim, doc_list):
         term_counter = Counter()
         for term in self.dim:
             term_counter[term] = 0
         for doc_num in doc_list:
-            doc_words = Line.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read())
+            doc_words = Program.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read())
             for term in doc_words:
                 if term in self.dim:
                     term_counter[term] += 1
-        query_words = Line.tokenize_line(query)
+        query_words = Program.tokenize_line(query)
         for term in query_words:
             if term in self.dim:
                 term_counter[term] += 1
@@ -121,14 +113,14 @@ class Query:
             tf[term] = term_counter[term]
         return tf
 
-
+    #build the vector of query
     def calculate_vector(self):
         tf_idf = dict()
         for term in self.dim:
             tf_idf[term] = self.tf[term] * self.idf[term]
         return tf_idf
 
-
+#class for running program
 class Program:
     def __init__(self, query, doc_list):
         self.query = Query(query, doc_list)
@@ -139,7 +131,7 @@ class Program:
         self.docs_cosine = self.calculate_cosine()
         print(max(self.docs_cosine, key = lambda x: self.docs_cosine[x]))
 
-
+    #calculating cosines
     def calculate_cosine(self):
         docs_and_query_zarb_dakhly = Counter()
         for doc in self.doc_dict:
@@ -163,6 +155,16 @@ class Program:
         for doc_num in docs_cosine:
             docs_cosine_dict[doc_num] = docs_cosine[doc_num]
         return docs_cosine_dict
+
+
+    #tokenizing
+    @staticmethod
+    def tokenize_line(line):
+        '''Create a SimpleAnalyzer with default stop words
+           Tokenize the query using the analyzer'''
+        analyzer = SimpleAnalyzer() | StopFilter()
+        tokens = [token.text for token in analyzer(line)]
+        return tokens
 
 
 if __name__ == "__main__" :
