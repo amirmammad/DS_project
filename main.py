@@ -8,166 +8,304 @@ from math import log, sqrt
 from collections import Counter
 from whoosh.analysis import SimpleAnalyzer, StopFilter
 
-#class for each paragraph
-class Line:
-    def __init__(self, doc, idf, dim):
-        self.tokenized_doc = Program.tokenize_line(doc)
-        self.dim = dim
-        self.tf = self.calculate_tf()
-        self.idf = idf
-        self.vector = self.calculate_vector()
-        
-    #calculating each paragraph tf
-    def calculate_tf(self):
-        term_counter = Counter()
-        for term in self.dim:
-            term_counter[term] = 0
-        for term in self.tokenized_doc:
-            if term in self.dim:
-                term_counter[term] += 1
-        tf = dict()
-        for term in term_counter:
-            tf[term] = term_counter[term]
-        return tf
+#static methods
+#tokenizing
+def tokenize(text):
+    analyzer = SimpleAnalyzer() | StopFilter()
+    tokens = [token.text for token in analyzer(text)]
+    return tokens
 
-    #build the vector of each paragraph
-    def calculate_vector(self):
+#static fields
+query = str()
+dim = set()
+docs_text = Counter()
+
+#class for calculating vector of each paragraph of each document
+class Line_1:
+    def __init__(self, idf, tf):
+        self.tf = tf
+        self.idf = idf
+        self.vector = self.build_line_1_vector()
+
+    #building the vector of the paragraph
+    def build_line_1_vector(self):
         tf_idf = dict()
-        for term in self.dim:
+        for term in dim:
             tf_idf[term] = self.tf[term] * self.idf[term]
         return tf_idf
 
-
-#class for each document
+#class for calculating vector of each document
 class Document:
-    def __init__(self, doc, dim):
+    def __init__(self, doc_text):
+        self.doc_text = doc_text
+        self.doc_lines_idf = self.line_1_idf_calculator(doc_text)
+        self.doc_lines_tf = self.line_1_tf_calculator(tokenize(doc_text))
         self.line_vector_list = list()
-        self.dim = dim
-        self.idf = self.line_idf_calculator(doc)
-        for line in doc.split("\n"):
-            self.line_vector_list.append(Line(doc, self.idf, self.dim))
-        self.doc_vector = self.sum(self.line_vector_list)
+        for line in doc_text.split("\n"):
+            self.line_vector_list.append(Line_1(self.doc_lines_idf, self.doc_lines_tf))
+        self.doc_vector = self.sum_line_vectors()
 
-    #calculating each paragraph idf
-    def line_idf_calculator(self, doc):
+    #calculating idf of vector of each paragraph of each document in range of all of the paragraphs of the document of that paragraph
+    def line_1_idf_calculator(self, doc_text):
         term_counter = Counter()
-        num_par = len(doc.split("\n"))
-        for term in self.dim:
-            for line in doc.split("\n"):
-                if term in line:
+        doc_lines = doc_text.split("\n")
+        for term in dim:
+            for line in doc_lines:
+                if term in tokenize(line):
                     term_counter[term] += 1
         idf = dict()
-        for term in self.dim:
+        for term in dim:
             if term_counter[term] == 0:
-                term_counter[term] = 1
-            idf[term] = log(num_par / term_counter[term])
+                idf[term] = log((len(doc_lines)) / 0.001) # contains + 1 or not ?
+            else:
+                idf[term] = log(len(doc_lines) / (term_counter[term]))
         return idf
 
-    #calculates the sum of paragraphs vectors and gives the doc vector
-    def sum(self, line_vector_list):
-        vector_sum = Counter()
-        for line in line_vector_list:
-            for term in self.dim:
-                vector_sum[term] += line.vector[term]
-        vector_sum_dict = dict()
-        for term in vector_sum:
-            vector_sum_dict[term] = vector_sum[term]
-        return vector_sum_dict
+    #calculating tf of vector of each paragraph of each document in range of all of the words of the document of that paragraph
+    def line_1_tf_calculator(self, tokenized_doc_text):
+        term_counter = Counter()
+        for term in dim:
+            term_counter[term] = 0
+        for term in tokenized_doc_text:
+            if term in dim:
+                term_counter[term] += 1
+        tf = dict()
+        for term in term_counter:
+            tf[term] = term_counter[term]
+        return tf 
 
-#class for query
-class Query:
-    def __init__(self, query, doc_list):
-        self.dim = set(Program.tokenize_line(query))
-        self.idf = self.query_idf_calculator(self.dim, doc_list)
-        self.tf = self.query_tf_calculator(query, self.dim, doc_list)
-        self.vector = self.calculate_vector()
+    #calculating the sum of paragraphs vectors of the document and building the document vector
+    def sum_line_vectors(self):
+        doc_vector = Counter()
+        for line in self.line_vector_list:
+            for term in dim:
+                doc_vector[term] += line.vector[term]
+        doc_vector_dict = dict()
+        for term in doc_vector:
+            doc_vector_dict[term] = doc_vector[term]
+        return doc_vector_dict
+
+#class for calculating vector of query when comparing to vector of documents
+class Query_1:
+    def __init__(self, doc_list):
+        self.idf = self.query_1_idf_calculator(doc_list)
+        self.tf = self.query_1_tf_calculator(doc_list)
+        self.vector = self.build_query_1_vector()
     
-    #calculating query idf
-    def query_idf_calculator(self, dim, doc_list):
+    #calculating idf of vector of query_1 in range of all of the documents of testcase(check if we should count query as a document or not!)
+    def query_1_idf_calculator(self, doc_list):
         doc_counter = Counter()
-        for term in self.dim:
+        for term in dim:
             for doc_num in doc_list:
-                if term in Program.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read()):
+                tokenized_doc_text = tokenize(docs_text[doc_num])
+                if term in tokenized_doc_text:
                     doc_counter[term] += 1
         idf = dict()
-        for term in self.dim:
-            idf[term] = log(len(doc_list) / (doc_counter[term] + 1))
+        for term in dim:
+            if doc_counter[term] == 0:
+                idf[term] = log((len(doc_list)) / 0.001) # contains + 1 or not ?
+            else:
+                idf[term] = log((len(doc_list)) / (doc_counter[term])) # contains + 1 or not ?
         return idf
 
-    #calculating query tf
-    def query_tf_calculator(self, query, dim, doc_list):
+    #calculating tf of vector of query_1 in range of all of the words of all of the documents of testcase(check if we should count query words or not!)
+    def query_1_tf_calculator(self, doc_list):
         term_counter = Counter()
-        for term in self.dim:
+        for term in dim:
             term_counter[term] = 0
         for doc_num in doc_list:
-            doc_words = Program.tokenize_line(open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read())
+            doc_words = tokenize(docs_text[doc_num])
             for term in doc_words:
-                if term in self.dim:
+                if term in dim:
                     term_counter[term] += 1
-        query_words = Program.tokenize_line(query)
+        query_words = tokenize(query)
         for term in query_words:
-            if term in self.dim:
+            if term in dim:
+                term_counter[term] += 1 
+        # this should be or not ?
+        tf = dict()
+        for term in term_counter:
+            tf[term] = term_counter[term]
+        return tf
+
+    #building the vector of query_1
+    def build_query_1_vector(self):
+        tf_idf = dict()
+        for term in dim:
+            tf_idf[term] = self.tf[term] * self.idf[term]
+        return tf_idf
+
+#class for calculating vector of query when comparing to vectors of paragraphs of the most related document
+class Query_2:
+    def __init__(self, doc_text):
+        self.idf = self.query_2_idf_calculator(doc_text)
+        self.tf = self.query_2_tf_calculator(doc_text)
+        self.vector = self.build_query_2_vector()
+
+    #calculating idf of vector of query_2 in range of all of the paragraphs of the most related document(check if we should count query as a paragraph or not!)
+    def query_2_idf_calculator(self, doc_text):
+        term_counter = Counter()
+        doc_lines = doc_text.split("\n")
+        for term in dim:
+            for line in doc_lines:
+                if term in tokenize(line):
+                    term_counter[term] += 1
+        idf = dict()
+        for term in dim:
+            if term_counter[term] == 0:
+                idf[term] = log((len(doc_lines)) / 0.001) # contains + 1 or not ?
+            else:
+                idf[term] = log((len(doc_lines)) / ((term_counter[term]))) # contains + 1 or not ?
+        return idf
+
+    #calculating tf of vector of query_2 in range of all of the words of the most related document(check if we should count query words or not!)
+    def query_2_tf_calculator(self, doc_text):
+        term_counter = Counter()
+        for term in dim:
+            term_counter[term] = 0
+        doc_words = tokenize(doc_text)
+        for term in doc_words:
+            if term in dim:
+                term_counter[term] += 1
+        query_words = tokenize(query)
+        for term in query_words:
+            if term in dim:
+                term_counter[term] += 1
+        #this should be or not ?
+        tf = dict()
+        for term in term_counter:
+            tf[term] = term_counter[term]
+        return tf
+
+    #building the vector of query_2
+    def build_query_2_vector(self):
+        tf_idf = dict()
+        for term in dim:
+            tf_idf[term] = self.tf[term] * self.idf[term]
+        return tf_idf
+
+#class for calculating vector of each paragraph of the most related document
+class Line_2:
+    def __init__(self, idf, line_text):
+        self.idf = idf
+        self.tf = self.line_2_tf_calculator(tokenize(line_text))
+        self.vector = self.build_line_2_vector()
+
+    #calculating tf of vector of each paragraph of the most related document in range of all of the words of that paragraph
+    def line_2_tf_calculator(self, line_words):
+        term_counter = Counter()
+        for term in dim:
+            term_counter[term] = 0
+        for term in line_words:
+            if term in dim:
                 term_counter[term] += 1
         tf = dict()
         for term in term_counter:
             tf[term] = term_counter[term]
         return tf
 
-    #build the vector of query
-    def calculate_vector(self):
+    #building the vector of the paragraph
+    def build_line_2_vector(self):
         tf_idf = dict()
-        for term in self.dim:
+        for term in dim:
             tf_idf[term] = self.tf[term] * self.idf[term]
         return tf_idf
 
 #class for running program
 class Program:
     def __init__(self, query, doc_list):
-        self.query = Query(query, doc_list)
+        self.query_1 = Query_1(doc_list)
         self.doc_dict = dict()
-        for doc in doc_list:
-            doc_text = open(os.getcwd() + "\\data\\document_" + doc + ".txt").read()
-            self.doc_dict[doc] = Document(doc_text, self.query.dim)
-        self.docs_cosine = self.calculate_cosine()
-        print(max(self.docs_cosine, key = lambda x: self.docs_cosine[x]))
+        for doc_num in doc_list:
+            self.doc_dict[doc_num] = Document(docs_text[doc_num])
+        self.docs_cosines = self.calculate_docs_cosines()
+        self.most_related_doc_number = max(self.docs_cosines, key = lambda x: self.docs_cosines[x])
+        self.most_related_doc_text = self.doc_dict[self.most_related_doc_number].doc_text 
+        print("document_id = " + self.most_related_doc_number)
+        self.query_2 = Query_2(self.most_related_doc_text)
+        self.max_doc_lines_vector_list = list()
+        self.most_related_doc_lines_idf = self.line_2_idf_calculator(self.most_related_doc_text)
+        self.max_doc_lines = self.most_related_doc_text.split("\n")
+        for line_text in self.max_doc_lines:
+            self.max_doc_lines_vector_list.append(Line_2(self.most_related_doc_lines_idf, line_text))
+        self.lines_cosines = self.calculate_lines_cosines(self.max_doc_lines_vector_list)
+        print("pararaph " + str(self.lines_cosines.index(max(self.lines_cosines)) + 1))
 
-    #calculating cosines
-    def calculate_cosine(self):
+    #calculating idf of vector of each paragraph of the most related document in range of all of the words of the most related document
+    def line_2_idf_calculator(self, doc_text):
+        term_counter = Counter()
+        for term in dim:
+            term_counter[term] = 0
+        doc_words = tokenize(doc_text)
+        for term in doc_words:
+            if term in dim:
+                term_counter[term] += 1
+        idf = dict()
+        for term in term_counter:
+            if term_counter[term] == 0:
+                idf[term] = log((len(doc_words)) / 0.001) # contains + 1 or not ?
+            else:    
+                idf[term] = log(len(doc_words) / (term_counter[term]))
+        return idf
+
+    #calculating cosines between docs vectors and query_1 vector
+    def calculate_docs_cosines(self):
         docs_and_query_zarb_dakhly = Counter()
-        for doc in self.doc_dict:
-            for term in self.query.dim:
-                docs_and_query_zarb_dakhly[doc] += self.doc_dict[doc].doc_vector[term] * self.query.vector[term]
+        for doc_num in self.doc_dict:
+            for term in dim:
+                docs_and_query_zarb_dakhly[doc_num] += self.doc_dict[doc_num].doc_vector[term] * self.query_1.vector[term]
         query_square_sum = 0
-        for term in self.query.dim:
-            query_square_sum += self.query.vector[term] ** 2
+        for term in dim:
+            query_square_sum += self.query_1.vector[term] ** 2
         docs_square_sum = Counter()
-        for doc in self.doc_dict:
-            for term in self.query.dim:
-                docs_square_sum[doc] += self.doc_dict[doc].doc_vector[term] ** 2
-        docs_cosine = Counter()
-        for doc in self.doc_dict:
-            temp = sqrt(docs_square_sum[doc]) * sqrt(query_square_sum)
+        for doc_num in self.doc_dict:
+            for term in dim:
+                docs_square_sum[doc_num] += self.doc_dict[doc_num].doc_vector[term] ** 2
+        docs_cosines = Counter()
+        for doc_num in self.doc_dict:
+            temp = sqrt(docs_square_sum[doc_num]) * sqrt(query_square_sum)
             if temp == 0:
-                docs_cosine[doc] = -1
+                docs_cosines[doc_num] = -1
             else:
-                docs_cosine[doc] = docs_and_query_zarb_dakhly[doc] / temp
-        docs_cosine_dict = dict()
-        for doc_num in docs_cosine:
-            docs_cosine_dict[doc_num] = docs_cosine[doc_num]
-        return docs_cosine_dict
+                docs_cosines[doc_num] = docs_and_query_zarb_dakhly[doc_num] / temp
+        docs_cosines_dict = dict()
+        for doc_num in docs_cosines:
+            docs_cosines_dict[doc_num] = docs_cosines[doc_num]
+        return docs_cosines_dict
 
+    #calculating cosines between the vector of paragraphs of the most related document and query_2 vector
+    def calculate_lines_cosines(self, max_doc_lines_vector_list):
+        lines_and_query_zarb_dakhly = list()
+        for line_vector in max_doc_lines_vector_list:
+            lines_and_query_zarb_dakhly.append(0)
+        for line_vector in max_doc_lines_vector_list:
+            for term in dim:
+                lines_and_query_zarb_dakhly[max_doc_lines_vector_list.index(line_vector)] += self.query_2.vector[term] * line_vector.vector[term]
+        query_2_square_sum = 0
+        for term in dim:
+            query_2_square_sum += self.query_2.vector[term] ** 2
+        lines_square_sum = list()
+        for line_vector in max_doc_lines_vector_list:
+            lines_square_sum.append(0)
+        for line_vector in max_doc_lines_vector_list:
+            for term in dim:
+                lines_square_sum[max_doc_lines_vector_list.index(line_vector)] += line_vector.vector[term] ** 2
+        lines_cosines = list()
+        for line_vector in max_doc_lines_vector_list:
+            lines_cosines.append(0)
+        for line_vector in max_doc_lines_vector_list:
+            temp = sqrt(lines_square_sum[max_doc_lines_vector_list.index(line_vector)]) * sqrt(query_2_square_sum)
+            if temp == 0:
+                lines_cosines[max_doc_lines_vector_list.index(line_vector)] = -1
+            else:
+                lines_cosines[max_doc_lines_vector_list.index(line_vector)] = lines_and_query_zarb_dakhly[max_doc_lines_vector_list.index(line_vector)] / temp
+        return lines_cosines
 
-    #tokenizing
-    @staticmethod
-    def tokenize_line(line):
-        '''Create a SimpleAnalyzer with default stop words
-           Tokenize the query using the analyzer'''
-        analyzer = SimpleAnalyzer() | StopFilter()
-        tokens = [token.text for token in analyzer(line)]
-        return tokens
-
-
+#giving inputs and running the program
 if __name__ == "__main__" :
     query = str(input("Enter the query : "))
+    dim = set(tokenize(query))
     doc_list = input("Enter the document numbers : ").split()
+    for doc_num in doc_list:
+        docs_text[doc_num] = open(os.getcwd() + "\\data\\document_" + doc_num + ".txt").read()
     system = Program(query, doc_list)
