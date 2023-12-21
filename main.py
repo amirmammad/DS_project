@@ -46,7 +46,6 @@ class Line:
         return tokens
 
 
-
 class Document:
     def __init__(self, doc, dim=None):
         self.line_list = list()
@@ -56,6 +55,7 @@ class Document:
             self.dim = dim
         self.idf = self.line_idf_calculator(doc)
         for line in doc.split("\n"):
+
             self.line_list.append(Line(line, self.idf, self.dim))
         self.vector = self.vector_sum(self.line_list) #we should add a sum function
 
@@ -80,7 +80,7 @@ class Document:
             idf[term] = log(num_par/ (term_counter[term] + 1))
         return idf
 
-    
+
     def vector_sum(self, line_vector_list):
         vector_sum = dict()
         for term in self.dim:
@@ -129,7 +129,6 @@ class Program:
         similarity = dot_product / (magnitude1 * magnitude2)
         return similarity
         
-
 
 
 if __name__ == "__main__" :
