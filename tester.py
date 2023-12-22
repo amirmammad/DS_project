@@ -16,3 +16,4 @@ if __name__ == "__main__":
         if system.nearest_doc == int(data["document_id"]):
             true_counter += 1
     true_percentage = (true_counter / len(data_list)) * 100
+    print(true_percentage)
