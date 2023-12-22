@@ -39,7 +39,6 @@ class Line:
         return tokens
 
 
-
 class Document:
     def __init__(self, doc_num, dim=None):
         self.line_list = list()
@@ -54,6 +53,7 @@ class Document:
         self.idf = self.line_idf_calculator()
         self.line_vector_calculator()
         self.vector = self.vector_sum()
+
 
 
     @property
