@@ -114,7 +114,7 @@ class Program_1:
         similarity_score_dict = dict()
         for instance in search_domain:
             if type == "doc":
-                similarity_score_dict[instance] = 0.5 * (self.cosine_similarity(query.vector, search_domain[instance].vector)) + 0.5 * (SequenceMatcher(None, query.text, search_domain[instance].text).ratio())
+                similarity_score_dict[instance] = 0.7 * (self.cosine_similarity(query.vector, search_domain[instance].vector)) + 0.3 * (SequenceMatcher(None, query.text, search_domain[instance].text).ratio())
             else:
                 similarity_score_dict[search_domain.index(instance)] = 0.6 * (self.cosine_similarity(query.vector, instance.vector)) + 0.4 * (SequenceMatcher(None, query.text, instance.text).ratio())
         similarity_score_list = sorted(similarity_score_dict.items(), key=lambda x: x[1], reverse=True)
